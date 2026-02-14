@@ -116,3 +116,20 @@ const logout = async () => {
     </div>
   </div>
 </template>
+
+<style>
+@media print {
+  .min-h-screen.bg-gray-50.flex > aside {
+    display: none !important;
+  }
+  .min-h-screen.bg-gray-50.flex > div > header {
+    display: none !important;
+  }
+  .min-h-screen.bg-gray-50.flex > div {
+    margin-left: 0 !important;
+  }
+  .min-h-screen.bg-gray-50.flex > div > main {
+    padding: 0 !important;
+  }
+}
+</style>

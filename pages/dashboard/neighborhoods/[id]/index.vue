@@ -50,7 +50,6 @@ const submit = async () => {
       region: form.region,
       district: form.district,
       city: form.city,
-      boundary_coordinates: form.boundary_coordinates,
     })
     success.value = 'Muvaffaqiyatli saqlandi!'
     setTimeout(() => { success.value = '' }, 3000)
@@ -115,19 +114,6 @@ await load()
           </div>
         </div>
 
-        <div class="bg-white rounded-xl border border-gray-200 p-6">
-          <div class="flex items-center justify-between mb-4">
-            <div>
-              <h2 class="text-lg font-semibold text-gray-900">Mahalla chegarasi</h2>
-              <p class="text-sm text-gray-500 mt-0.5">Nuqtalarni tahrirlang yoki qayta chizing</p>
-            </div>
-            <span v-if="form.boundary_coordinates.length >= 3" class="text-sm font-medium text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">
-              {{ form.boundary_coordinates.length }} ta nuqta
-            </span>
-          </div>
-          <MapEditor v-model="form.boundary_coordinates" />
-        </div>
-
         <!-- Success -->
         <div v-if="success" class="bg-emerald-50 border border-emerald-200 text-emerald-700 px-5 py-4 rounded-xl text-sm flex items-center gap-2">
           <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
@@ -140,9 +126,6 @@ await load()
         </div>
 
         <div class="flex items-center justify-end gap-3">
-          <NuxtLink :to="`/dashboard/neighborhoods/${form.id}/map`" class="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-medium text-sm hover:bg-gray-50 transition-colors">
-            Print
-          </NuxtLink>
           <NuxtLink :to="`/dashboard/neighborhoods/${form.id}/map`" class="px-5 py-2.5 rounded-xl border border-indigo-300 text-indigo-700 font-medium text-sm hover:bg-indigo-50 transition-colors">
             Xaritani tahrirlash
           </NuxtLink>

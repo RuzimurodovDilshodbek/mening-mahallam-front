@@ -10,7 +10,6 @@ const form = reactive({
   region: '',
   district: '',
   city: '',
-  boundary_coordinates: [],
 })
 
 const saving = ref(false)
@@ -19,10 +18,6 @@ const error = ref('')
 const submit = async () => {
   if (!form.name) {
     error.value = 'Mahalla nomini kiriting.'
-    return
-  }
-  if (form.boundary_coordinates.length < 3) {
-    error.value = 'Xaritada kamida 3 ta nuqta belgilang.'
     return
   }
 
@@ -107,20 +102,6 @@ const submit = async () => {
             />
           </div>
         </div>
-      </div>
-
-      <!-- Map card -->
-      <div class="bg-white rounded-xl border border-gray-200 p-6">
-        <div class="flex items-center justify-between mb-4">
-          <div>
-            <h2 class="text-lg font-semibold text-gray-900">Mahalla chegarasi <span class="text-red-500">*</span></h2>
-            <p class="text-sm text-gray-500 mt-0.5">Xaritada polygon chizing</p>
-          </div>
-          <span v-if="form.boundary_coordinates.length >= 3" class="text-sm font-medium text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">
-            {{ form.boundary_coordinates.length }} ta nuqta
-          </span>
-        </div>
-        <MapEditor v-model="form.boundary_coordinates" />
       </div>
 
       <!-- Error -->

@@ -42,6 +42,15 @@ const editingBoundary = ref(false)
 const boundarySaving = ref(false)
 const boundarySaved = ref(false)
 
+// Print settings
+const printSize = ref('a4-portrait')
+const printSizeOptions = [
+  { value: 'a4-portrait', label: 'A4 (портрет)' },
+  { value: 'a4-landscape', label: 'A4 (альбом)' },
+  { value: 'a3-portrait', label: 'A3 (портрет)' },
+  { value: 'a3-landscape', label: 'A3 (альбом)' },
+]
+
 // World bounds for mask
 const worldBounds = [[85, -180], [85, 180], [-85, 180], [-85, -180], [85, -180]]
 
@@ -421,13 +430,6 @@ onMounted(async () => {
     syncBoundaryFromPolygon()
   })
 
-  // Center marker
-  if (center) {
-    L.circleMarker([center.lat, center.lng], {
-      radius: 6, fillColor: '#6366f1', color: '#ffffff', weight: 2, fillOpacity: 1,
-    }).addTo(map).bindPopup('<strong>Mahalla markazi</strong>')
-  }
-
   L.control.scale({ imperial: false, metric: true, position: 'bottomleft' }).addTo(map)
 
   // POI & Camera layers
@@ -448,14 +450,65 @@ onMounted(async () => {
 
 const focusPoi = (poi) => { if (map) map.setView([poi.latitude, poi.longitude], 17) }
 const focusCamera = (camera) => { if (map) map.setView([camera.latitude, camera.longitude], 17) }
+
+let printNumberMarkers = []
+
 const printNeighborhood = () => {
-  if (map) {
-    map.invalidateSize()
+  if (!map || !L) { window.print(); return }
+
+  // Set page size CSS variable
+  document.documentElement.setAttribute('data-print-size', printSize.value)
+
+  // Fit boundary in view
+  if (boundaryPolygon) {
+    map.fitBounds(boundaryPolygon.getBounds(), { padding: [30, 30] })
   }
+
+  // Add numbered labels to POI markers
+  pois.value.forEach((poi, i) => {
+    const label = L.marker([poi.latitude, poi.longitude], {
+      icon: L.divIcon({
+        html: `<div class="print-number-label print-number-poi">${i + 1}</div>`,
+        className: 'print-number-icon',
+        iconSize: [22, 22],
+        iconAnchor: [11, -8],
+      }),
+      interactive: false,
+    }).addTo(map)
+    printNumberMarkers.push(label)
+  })
+
+  // Add numbered labels to camera markers
+  cameras.value.forEach((camera, i) => {
+    const label = L.marker([camera.latitude, camera.longitude], {
+      icon: L.divIcon({
+        html: `<div class="print-number-label print-number-camera">K${i + 1}</div>`,
+        className: 'print-number-icon',
+        iconSize: [26, 22],
+        iconAnchor: [13, -8],
+      }),
+      interactive: false,
+    }).addTo(map)
+    printNumberMarkers.push(label)
+  })
+
+  map.invalidateSize()
+
   setTimeout(() => {
     window.print()
-  }, 400)
+
+    // Remove numbered labels
+    printNumberMarkers.forEach(m => map.removeLayer(m))
+    printNumberMarkers = []
+
+    document.documentElement.removeAttribute('data-print-size')
+  }, 600)
 }
+
+const printDate = computed(() => {
+  const d = new Date()
+  return d.toLocaleDateString('uz-UZ', { year: 'numeric', month: 'long', day: 'numeric' })
+})
 
 const statusColors = {
   active: 'text-emerald-600 bg-emerald-50',
@@ -481,11 +534,33 @@ const statusColors = {
         </div>
       </div>
       <div class="flex items-center gap-2 text-sm">
-        <button class="px-3 py-1 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors" @click="printNeighborhood">
-          Print
+        <select v-model="printSize" class="px-2 py-1 rounded-lg border border-gray-300 text-gray-700 text-xs font-medium focus:outline-none focus:border-indigo-500">
+          <option v-for="opt in printSizeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+        </select>
+        <button class="px-3 py-1 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors flex items-center gap-1.5" @click="printNeighborhood">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+          Chop etish
         </button>
         <span class="px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 font-medium">{{ pois.length }} ta obyekt</span>
         <span class="px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 font-medium">{{ cameras.length }} ta kamera</span>
+      </div>
+    </div>
+
+    <!-- Print-only header -->
+    <div class="print-only-header">
+      <div class="print-header-top">
+        <div>
+          <h1 class="print-title">{{ neighborhood?.name }}</h1>
+          <p class="print-subtitle" v-if="neighborhood?.region || neighborhood?.district || neighborhood?.city">
+            {{ [neighborhood?.region, neighborhood?.district, neighborhood?.city].filter(Boolean).join(', ') }}
+          </p>
+        </div>
+        <div class="print-header-date">{{ printDate }}</div>
+      </div>
+      <div class="print-stats">
+        <span>Chegaraviy nuqtalar: <strong>{{ pointCount }}</strong></span>
+        <span>Obyektlar: <strong>{{ pois.length }}</strong></span>
+        <span>Kameralar: <strong>{{ cameras.length }}</strong></span>
       </div>
     </div>
 
@@ -698,31 +773,7 @@ const statusColors = {
             <div v-if="!cameras.length" class="text-center text-sm text-gray-400 py-6">Hali kamera qo'shilmagan</div>
           </div>
 
-          <div class="print-only space-y-4">
-            <div>
-              <h3 class="text-sm font-semibold text-gray-900 mb-2">Obyektlar ({{ pois.length }})</h3>
-              <div v-if="pois.length" class="space-y-2">
-                <div v-for="poi in pois" :key="`print-poi-${poi.id}`" class="rounded-lg border border-gray-200 p-2">
-                  <p class="text-xs font-semibold text-gray-900">{{ poi.name }}</p>
-                  <p class="text-[11px] text-gray-600">{{ poi.poi_type?.name || poi.type || 'Turi ko\'rsatilmagan' }}</p>
-                  <p class="text-[11px] text-gray-500">{{ poi.latitude }}, {{ poi.longitude }}</p>
-                </div>
-              </div>
-              <p v-else class="text-xs text-gray-400">Obyektlar yo'q</p>
-            </div>
-
-            <div>
-              <h3 class="text-sm font-semibold text-gray-900 mb-2">Kameralar ({{ cameras.length }})</h3>
-              <div v-if="cameras.length" class="space-y-2">
-                <div v-for="camera in cameras" :key="`print-cam-${camera.id}`" class="rounded-lg border border-gray-200 p-2">
-                  <p class="text-xs font-semibold text-gray-900">{{ camera.name }}</p>
-                  <p class="text-[11px] text-gray-600">Status: {{ camera.status }}</p>
-                  <p class="text-[11px] text-gray-500">{{ camera.latitude }}, {{ camera.longitude }}</p>
-                </div>
-              </div>
-              <p v-else class="text-xs text-gray-400">Kameralar yo'q</p>
-            </div>
-          </div>
+          <!-- Print-only legend is now outside sidebar -->
         </div>
       </div>
 
@@ -733,6 +784,45 @@ const statusColors = {
         <!-- Placing indicator -->
         <div v-if="placingPoi || placingCamera" class="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-amber-500 text-white px-4 py-2 rounded-full shadow-lg text-sm font-medium">
           {{ placingPoi ? 'Obyekt joylashuvini tanlang' : 'Kamera joylashuvini tanlang' }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Print-only legend -->
+    <div class="print-legend">
+      <div class="print-legend-grid">
+        <div v-if="pois.length">
+          <h3 class="print-legend-title">Obyektlar</h3>
+          <table class="print-table">
+            <thead>
+              <tr><th>#</th><th>Nomi</th><th>Turi</th><th>Manzil</th><th>Koordinatalar</th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="(poi, i) in pois" :key="`pl-${poi.id}`">
+                <td class="print-num-cell"><span class="print-num-badge print-num-poi">{{ i + 1 }}</span></td>
+                <td>{{ poi.name }}</td>
+                <td>{{ poi.poi_type?.name || poi.type || '—' }}</td>
+                <td>{{ poi.address || '—' }}</td>
+                <td class="print-coord">{{ Number(poi.latitude).toFixed(6) }}, {{ Number(poi.longitude).toFixed(6) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div v-if="cameras.length">
+          <h3 class="print-legend-title">Kameralar</h3>
+          <table class="print-table">
+            <thead>
+              <tr><th>#</th><th>Nomi</th><th>Status</th><th>Koordinatalar</th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="(camera, i) in cameras" :key="`cl-${camera.id}`">
+                <td class="print-num-cell"><span class="print-num-badge print-num-camera">K{{ i + 1 }}</span></td>
+                <td>{{ camera.name }}</td>
+                <td>{{ camera.status === 'active' ? 'Faol' : camera.status === 'maintenance' ? 'Ta\'mirda' : 'Nofaol' }}</td>
+                <td class="print-coord">{{ Number(camera.latitude).toFixed(6) }}, {{ Number(camera.longitude).toFixed(6) }}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -841,42 +931,226 @@ const statusColors = {
   border: none !important;
 }
 
-.print-only {
+.print-only-header,
+.print-legend {
   display: none;
 }
 
+/* Print number labels (visible on screen too during print prep, but styled for print) */
+.print-number-icon {
+  background: transparent !important;
+  border: none !important;
+}
+.print-number-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  border-radius: 3px;
+  padding: 1px 4px;
+  text-align: center;
+  line-height: 18px;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+.print-number-poi { background: #6366f1; }
+.print-number-camera { background: #3b82f6; }
+
 @media print {
+  /* Page size based on data attribute */
+  @page { margin: 8mm; }
+
+  /* Hide interactive elements */
   .no-print,
+  .print-sidebar,
   .fixed.inset-0.z-\[2000\] {
     display: none !important;
   }
 
+  /* Show print-only sections */
+  .print-only-header,
+  .print-legend {
+    display: block !important;
+  }
+
+  /* Layout */
   .print-layout {
     height: auto !important;
     margin: 0 !important;
-  }
-
-  .print-sidebar {
-    width: 320px !important;
-    border-right: 1px solid #d1d5db !important;
+    display: block !important;
     overflow: visible !important;
   }
 
+  .print-layout > .flex-1.flex.overflow-hidden {
+    display: block !important;
+    overflow: visible !important;
+  }
+
+  /* Map fills full width */
   .print-map-wrap {
-    height: auto !important;
-    min-height: 80vh !important;
+    width: 100% !important;
+    height: 500px !important;
+    min-height: 500px !important;
+    page-break-inside: avoid;
   }
-
   .print-map {
-    min-height: 80vh !important;
+    width: 100% !important;
+    height: 500px !important;
+    min-height: 500px !important;
   }
 
-  .leaflet-control-container {
+  /* Force print backgrounds and images */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Leaflet tile images */
+  .leaflet-tile-container img {
+    visibility: visible !important;
+  }
+  .leaflet-tile-pane {
+    opacity: 1 !important;
+  }
+
+  /* Keep scale control visible, hide others */
+  .leaflet-control-container .leaflet-control-zoom,
+  .leaflet-control-container .leaflet-control-attribution,
+  .leaflet-draw {
+    display: none !important;
+  }
+  .leaflet-control-scale {
+    display: block !important;
+  }
+
+  /* Placing indicator */
+  .absolute.top-4 {
     display: none !important;
   }
 
-  .print-only {
-    display: block !important;
+  /* Print header */
+  .print-only-header {
+    padding: 12px 0;
+    border-bottom: 2px solid #4f46e5;
+    margin-bottom: 8px;
+  }
+  .print-header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .print-title {
+    font-size: 20px;
+    font-weight: 800;
+    color: #1f2937;
+    margin: 0;
+  }
+  .print-subtitle {
+    font-size: 12px;
+    color: #6b7280;
+    margin: 2px 0 0 0;
+  }
+  .print-header-date {
+    font-size: 11px;
+    color: #9ca3af;
+    white-space: nowrap;
+  }
+  .print-stats {
+    display: flex;
+    gap: 20px;
+    margin-top: 6px;
+    font-size: 11px;
+    color: #6b7280;
+  }
+  .print-stats strong {
+    color: #4f46e5;
+  }
+
+  /* Print legend */
+  .print-legend {
+    page-break-before: auto;
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid #e5e7eb;
+  }
+  .print-legend-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .print-legend-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1f2937;
+    margin: 0 0 4px 0;
+    padding-bottom: 3px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+  }
+  .print-table th {
+    background: #f9fafb;
+    font-weight: 600;
+    color: #374151;
+    padding: 3px 6px;
+    text-align: left;
+    border-bottom: 1px solid #d1d5db;
+  }
+  .print-table td {
+    padding: 3px 6px;
+    border-bottom: 1px solid #f3f4f6;
+    color: #4b5563;
+    vertical-align: middle;
+  }
+  .print-num-cell {
+    width: 30px;
+    text-align: center;
+  }
+  .print-num-badge {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 700;
+    color: #fff;
+    border-radius: 3px;
+    padding: 1px 5px;
+  }
+  .print-num-poi { background: #6366f1; }
+  .print-num-camera { background: #3b82f6; }
+  .print-coord {
+    font-family: monospace;
+    font-size: 9px;
+    color: #9ca3af;
+  }
+}
+
+/* Page size variants */
+[data-print-size="a4-portrait"] { }
+[data-print-size="a4-landscape"] { }
+[data-print-size="a3-portrait"] { }
+[data-print-size="a3-landscape"] { }
+
+@media print {
+  html[data-print-size="a4-landscape"] .print-map-wrap,
+  html[data-print-size="a4-landscape"] .print-map {
+    height: 400px !important;
+    min-height: 400px !important;
+  }
+  html[data-print-size="a3-portrait"] .print-map-wrap,
+  html[data-print-size="a3-portrait"] .print-map {
+    height: 700px !important;
+    min-height: 700px !important;
+  }
+  html[data-print-size="a3-landscape"] .print-map-wrap,
+  html[data-print-size="a3-landscape"] .print-map {
+    height: 550px !important;
+    min-height: 550px !important;
+  }
+  html[data-print-size="a3-portrait"] .print-legend-grid,
+  html[data-print-size="a3-landscape"] .print-legend-grid {
+    grid-template-columns: 1fr 1fr;
   }
 }
 </style>
