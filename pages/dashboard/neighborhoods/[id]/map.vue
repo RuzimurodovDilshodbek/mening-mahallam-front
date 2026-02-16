@@ -34,6 +34,7 @@ let maskPolygon = null
 let poiMarkersGroup = null
 let cameraMarkersGroup = null
 let currentTileLayer = null
+let boundaryDrawHandler = null
 const UZ_DEFAULT_CENTER = [40.171093, 64.927777]
 const initialZoom = 14
 const locatingMe = ref(false)
@@ -191,21 +192,27 @@ const fitBounds = () => {
 const drawNewBoundary = () => {
   if (!map || !L) return
   // Remove existing
+  if (boundaryDrawHandler) {
+    boundaryDrawHandler.disable()
+    boundaryDrawHandler = null
+  }
   if (boundaryPolygon) {
     if (editingBoundary.value) boundaryPolygon.editing.disable()
     map.removeLayer(boundaryPolygon)
     boundaryPolygon = null
   }
+  editingBoundary.value = false
   if (maskPolygon) { map.removeLayer(maskPolygon); maskPolygon = null }
   boundaryCoords.value = []
 
   // Start draw mode
-  const drawHandler = new L.Draw.Polygon(map, {
+  boundaryDrawHandler = new L.Draw.Polygon(map, {
     allowIntersection: false,
     showArea: true,
+    maxPoints: 0,
     shapeOptions: { color: '#6366f1', weight: 3, fillColor: '#6366f1', fillOpacity: 0.1 },
   })
-  drawHandler.enable()
+  boundaryDrawHandler.enable()
 }
 
 const hasValidCenter = (center) => {
@@ -475,12 +482,17 @@ onMounted(async () => {
 
   // Leaflet Draw for creating NEW polygons only
   map.on(L.Draw.Event.CREATED, (event) => {
+    if (boundaryDrawHandler) {
+      boundaryDrawHandler.disable()
+      boundaryDrawHandler = null
+    }
     if (boundaryPolygon) map.removeLayer(boundaryPolygon)
     boundaryPolygon = event.layer
     boundaryPolygon.setStyle({ color: '#6366f1', weight: 3, fillColor: '#6366f1', fillOpacity: 0.08 })
     boundaryPolygon.addTo(map)
     boundaryPolygon.on('edit', syncBoundaryFromPolygon)
     syncBoundaryFromPolygon()
+    enableBoundaryEdit()
   })
 
   L.control.scale({ imperial: false, metric: true, position: 'bottomleft' }).addTo(map)
@@ -502,6 +514,10 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  if (boundaryDrawHandler) {
+    boundaryDrawHandler.disable()
+    boundaryDrawHandler = null
+  }
   if (map) {
     map.remove()
     map = null
