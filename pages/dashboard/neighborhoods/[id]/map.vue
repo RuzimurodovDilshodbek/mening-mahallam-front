@@ -34,6 +34,9 @@ let maskPolygon = null
 let poiMarkersGroup = null
 let cameraMarkersGroup = null
 let currentTileLayer = null
+const UZ_DEFAULT_CENTER = [40.171093, 64.927777]
+const initialZoom = 14
+const locatingMe = ref(false)
 
 // Map settings
 const mapStyle = ref('osm')
@@ -203,6 +206,50 @@ const drawNewBoundary = () => {
     shapeOptions: { color: '#6366f1', weight: 3, fillColor: '#6366f1', fillOpacity: 0.1 },
   })
   drawHandler.enable()
+}
+
+const hasValidCenter = (center) => {
+  if (!center || typeof center !== 'object') return false
+  const lat = Number(center.lat)
+  const lng = Number(center.lng)
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return false
+  if (lat === 0 && lng === 0) return false
+  return true
+}
+
+const getCurrentPosition = () => {
+  return new Promise((resolve, reject) => {
+    if (!process.client || !navigator.geolocation) {
+      reject(new Error('Geolocation unsupported'))
+      return
+    }
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: true,
+      timeout: 8000,
+      maximumAge: 60000,
+    })
+  })
+}
+
+const goToMyLocation = async ({ silent = false } = {}) => {
+  if (!map || locatingMe.value) return false
+
+  try {
+    locatingMe.value = true
+    const position = await getCurrentPosition()
+    const lat = position.coords.latitude
+    const lng = position.coords.longitude
+    map.setView([lat, lng], 15)
+    return true
+  } catch (e) {
+    if (!silent) {
+      alert('Joylashuvni aniqlab bo\'lmadi. Brauzerda Location ruxsatini yoqing.')
+    }
+    return false
+  } finally {
+    locatingMe.value = false
+  }
 }
 
 // Switch map style
@@ -383,6 +430,11 @@ const renderCameraMarkers = () => {
 onMounted(async () => {
   await loadData()
   if (!process.client) return
+  await nextTick()
+  if (!mapEl.value) {
+    console.error('Map container not ready')
+    return
+  }
 
   const leaflet = await import('leaflet')
   await import('leaflet-draw')
@@ -396,9 +448,8 @@ onMounted(async () => {
   })
 
   const center = neighborhood.value?.center
-  map = L.map(mapEl.value, { minZoom: 10, maxZoom: 19 }).setView(
-    center ? [center.lat, center.lng] : [40.171093, 64.927777], 14
-  )
+  const initialCenter = hasValidCenter(center) ? [center.lat, center.lng] : UZ_DEFAULT_CENTER
+  map = L.map(mapEl.value, { minZoom: 10, maxZoom: 19 }).setView(initialCenter, initialZoom)
 
   // Default tile layer
   const cfg = tileLayers.osm
@@ -418,6 +469,8 @@ onMounted(async () => {
     updateMask()
 
     map.fitBounds(boundaryPolygon.getBounds(), { padding: [50, 50] })
+  } else if (!hasValidCenter(center)) {
+    await goToMyLocation({ silent: true })
   }
 
   // Leaflet Draw for creating NEW polygons only
@@ -446,6 +499,13 @@ onMounted(async () => {
   })
 
   setTimeout(() => map.invalidateSize(), 200)
+})
+
+onBeforeUnmount(() => {
+  if (map) {
+    map.remove()
+    map = null
+  }
 })
 
 const focusPoi = (poi) => { if (map) map.setView([poi.latitude, poi.longitude], 17) }
@@ -780,6 +840,13 @@ const statusColors = {
       <!-- Map -->
       <div class="flex-1 relative print-map-wrap">
         <div ref="mapEl" class="w-full h-full print-map" />
+        <button
+          class="absolute top-4 right-4 z-[1000] px-3 py-2 rounded-lg bg-white/95 border border-gray-200 text-sm font-medium text-gray-700 shadow hover:bg-white no-print disabled:opacity-60"
+          :disabled="locatingMe"
+          @click="goToMyLocation()"
+        >
+          {{ locatingMe ? 'Aniqlanmoqda...' : 'Mening joylashuvim' }}
+        </button>
 
         <!-- Placing indicator -->
         <div v-if="placingPoi || placingCamera" class="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-amber-500 text-white px-4 py-2 rounded-full shadow-lg text-sm font-medium">
