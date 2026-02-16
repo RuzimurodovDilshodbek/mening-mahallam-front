@@ -1,4 +1,4 @@
-﻿export const useApi = () => {
+export const useApi = () => {
   const config = useRuntimeConfig()
   const auth = useAuth()
 
@@ -12,10 +12,22 @@
       headers.Authorization = `Bearer ${auth.token.value}`
     }
 
-    return await $fetch(`${config.public.apiBase}${path}`, {
-      ...options,
-      headers,
-    })
+    try {
+      return await $fetch(`${config.public.apiBase}${path}`, {
+        ...options,
+        headers,
+      })
+    } catch (error) {
+      if (error?.status === 401 || error?.response?.status === 401) {
+        auth.setToken(null)
+        auth.user.value = null
+
+        if (process.client && window.location.pathname !== '/login') {
+          await navigateTo('/login')
+        }
+      }
+      throw error
+    }
   }
 
   return { request }
