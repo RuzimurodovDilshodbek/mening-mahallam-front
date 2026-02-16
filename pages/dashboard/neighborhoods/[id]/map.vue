@@ -208,8 +208,7 @@ const drawNewBoundary = () => {
   // Start draw mode
   boundaryDrawHandler = new L.Draw.Polygon(map, {
     allowIntersection: false,
-    showArea: true,
-    maxPoints: 0,
+    showArea: false,
     shapeOptions: { color: '#6366f1', weight: 3, fillColor: '#6366f1', fillOpacity: 0.1 },
   })
   boundaryDrawHandler.enable()
@@ -444,6 +443,8 @@ onMounted(async () => {
   }
 
   const leaflet = await import('leaflet')
+  // Workaround: leaflet-draw 1.0.4 readableArea() bug (#1026)
+  if (typeof window.type === 'undefined') window.type = ''
   await import('leaflet-draw')
   L = leaflet.default || leaflet
 
