@@ -2,10 +2,6 @@
 definePageMeta({ middleware: ['auth'] })
 
 const auth = useAuth()
-await auth.fetchUser()
-if (!(auth.user.value?.roles || []).includes('admin') && !(auth.user.value?.roles || []).includes('super-admin')) {
-  await navigateTo('/dashboard')
-}
 
 const { neighborhoods, verifyNeighborhood } = useAdminApi()
 const list = ref([])
@@ -26,7 +22,14 @@ const verifyItem = async (id) => {
   await load()
 }
 
-await load()
+onMounted(async () => {
+  await auth.fetchUser()
+  if (!(auth.user.value?.roles || []).includes('admin') && !(auth.user.value?.roles || []).includes('super-admin')) {
+    await navigateTo('/dashboard')
+    return
+  }
+  await load()
+})
 </script>
 
 <template>

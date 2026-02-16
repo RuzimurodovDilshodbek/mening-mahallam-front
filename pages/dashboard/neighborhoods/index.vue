@@ -31,7 +31,9 @@ const statusColor = (status) => {
   return map[status] || map.draft
 }
 
-await load()
+onMounted(async () => {
+  await load()
+})
 </script>
 
 <template>

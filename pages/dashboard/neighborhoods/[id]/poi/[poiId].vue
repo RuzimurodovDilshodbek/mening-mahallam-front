@@ -152,10 +152,11 @@ const initMiniMap = async () => {
   setTimeout(() => m.invalidateSize(), 200)
 }
 
-await loadData()
-
-onMounted(() => {
-  if (poi.value) initMiniMap()
+onMounted(async () => {
+  await loadData()
+  if (poi.value) {
+    await initMiniMap()
+  }
 })
 </script>
 

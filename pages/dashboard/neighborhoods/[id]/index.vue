@@ -60,7 +60,9 @@ const submit = async () => {
   }
 }
 
-await load()
+onMounted(async () => {
+  await load()
+})
 </script>
 
 <template>

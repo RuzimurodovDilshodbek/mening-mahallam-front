@@ -9,30 +9,36 @@ const neighborhoodsCount = ref(0)
 const usersCount = ref(0)
 const recentNeighborhoods = ref([])
 
-await auth.fetchUser()
-
 const isAdmin = computed(() => {
   const roles = auth.user.value?.roles || []
   return roles.includes('admin') || roles.includes('super-admin')
 })
 
-try {
-  const res = await list()
-  neighborhoodsCount.value = res?.meta?.total || res?.data?.length || 0
-  recentNeighborhoods.value = (res?.data || []).slice(0, 5)
-} catch {}
+const loadDashboard = async () => {
+  await auth.fetchUser()
 
-if (isAdmin.value) {
   try {
-    const res = await users()
-    usersCount.value = res?.meta?.total || res?.data?.length || 0
+    const res = await list()
+    neighborhoodsCount.value = res?.meta?.total || res?.data?.length || 0
+    recentNeighborhoods.value = (res?.data || []).slice(0, 5)
   } catch {}
+
+  if (isAdmin.value) {
+    try {
+      const res = await users()
+      usersCount.value = res?.meta?.total || res?.data?.length || 0
+    } catch {}
+  }
 }
 
 const statusColor = (status) => {
   const map = { published: 'bg-emerald-100 text-emerald-700', draft: 'bg-amber-100 text-amber-700', archived: 'bg-gray-100 text-gray-600' }
   return map[status] || map.draft
 }
+
+onMounted(async () => {
+  await loadDashboard()
+})
 </script>
 
 <template>

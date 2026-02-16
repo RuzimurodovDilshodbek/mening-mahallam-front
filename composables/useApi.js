@@ -23,7 +23,9 @@ export const useApi = () => {
         auth.user.value = null
 
         if (process.client && window.location.pathname !== '/login') {
-          await navigateTo('/login')
+          window.location.replace('/login')
+          // Stop current async chain to avoid rendering Nuxt error page before redirect.
+          return await new Promise(() => {})
         }
       }
       throw error

@@ -2,10 +2,6 @@
 definePageMeta({ middleware: ['auth'] })
 
 const auth = useAuth()
-await auth.fetchUser()
-if (!(auth.user.value?.roles || []).includes('admin') && !(auth.user.value?.roles || []).includes('super-admin')) {
-  await navigateTo('/dashboard')
-}
 
 const { users, createUser, updateUser, deleteUser } = useAdminApi()
 const list = ref([])
@@ -107,7 +103,14 @@ const roleColor = (role) => {
   return map[role] || map.user
 }
 
-await loadUsers()
+onMounted(async () => {
+  await auth.fetchUser()
+  if (!(auth.user.value?.roles || []).includes('admin') && !(auth.user.value?.roles || []).includes('super-admin')) {
+    await navigateTo('/dashboard')
+    return
+  }
+  await loadUsers()
+})
 </script>
 
 <template>
